@@ -5,6 +5,10 @@ import Foundation
 /// Main controller that manages the jiggler state and coordination
 @MainActor
 final class JigglerController: ObservableObject {
+    // MARK: - Singleton
+
+    static let shared = JigglerController()
+
     // MARK: - Published States
 
     @Published var isActive: Bool = false
@@ -55,12 +59,28 @@ final class JigglerController: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    private init() {
         self.setupIdleMonitoring()
+        self.setupNotifications()
     }
 
     deinit {
         timer?.invalidate()
+    }
+
+    // MARK: - Notifications
+
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.handleToggle),
+            name: .toggleJiggler,
+            object: nil
+        )
+    }
+
+    @objc private func handleToggle() {
+        self.toggle()
     }
 
     // MARK: - Public Methods
@@ -74,6 +94,11 @@ final class JigglerController: ObservableObject {
     }
 
     func start() {
+        guard AccessibilityChecker.checkPermissions() else {
+            AccessibilityChecker.requestPermissions()
+            return
+        }
+
         self.isActive = true
         self.state = .monitoring
         self.lastMousePosition = self.getCurrentMousePosition()
@@ -82,9 +107,9 @@ final class JigglerController: ObservableObject {
         self.startTimer()
 
         if self.settings.showNotifications {
-            self.showNotification(title: "Mouse Jiggler", message: "Started monitoring for idle time")
+            self.showNotification(title: "Mouse Jiggler", message: "Started")
         }
-        print("[Jiggler] Started - monitoring for idle time")
+        print("[Jiggler] Started")
     }
 
     func stop() {
@@ -124,7 +149,6 @@ final class JigglerController: ObservableObject {
     private func tick() {
         guard self.isActive else { return }
 
-        // Check if user is actively moving the mouse by tracking position changes
         self.checkMouseActivity()
 
         let idleThreshold = self.settings.idleThresholdSeconds
@@ -132,35 +156,27 @@ final class JigglerController: ObservableObject {
 
         switch self.state {
         case .monitoring:
-            // Only start jiggling if:
-            // 1. System reports idle time >= threshold
-            // 2. Mouse has been still for >= threshold
-            // 3. User is not actively moving mouse
             if self.idleTime >= idleThreshold,
                self.timeMouseHasBeenStill >= idleThreshold,
                !self.isUserActivelyMovingMouse
             {
-                print("[Jiggler] Idle threshold reached (system: \(Int(self.idleTime))s, still: \(Int(self.timeMouseHasBeenStill))s), starting jiggle mode")
+                print("[Jiggler] Idle threshold reached, starting movement")
                 self.state = .jiggling
                 if self.settings.showNotifications {
-                    self.showNotification(title: "Mouse Jiggler", message: "Cursor moving - you were idle for \(Int(idleThreshold))s")
+                    self.showNotification(title: "Mouse Jiggler", message: "Moving cursor - you were idle")
                 }
                 self.performJiggle()
             }
 
         case .jiggling:
-            // Stop jiggling if user becomes active
-            // User is active if system idle time drops below 2 seconds
-            // We ignore isUserActivelyMovingMouse here because our own jiggle sets it to true
             if self.idleTime < 2 {
-                print("[Jiggler] User is active (system idle: \(Int(self.idleTime))s), pausing jiggle mode")
+                print("[Jiggler] User is active, pausing")
                 self.state = .monitoring
                 self.timeMouseHasBeenStill = self.idleTime
                 if self.settings.showNotifications {
-                    self.showNotification(title: "Mouse Jiggler", message: "Paused - user is active")
+                    self.showNotification(title: "Mouse Jiggler", message: "Paused - user active")
                 }
             } else {
-                // Continue jiggling if enough time has passed since last jiggle
                 let timeSinceLastJiggle = Date().timeIntervalSince(self.lastJiggleTime ?? .distantPast)
                 if timeSinceLastJiggle >= moveInterval {
                     self.performJiggle()
@@ -172,12 +188,9 @@ final class JigglerController: ObservableObject {
         }
     }
 
-    /// Check if user is actively moving the mouse by comparing positions
     private func checkMouseActivity() {
         guard let currentPos = getCurrentMousePosition() else { return }
 
-        // Ignore position checks right after we completed a jiggle (within 1 second)
-        // This prevents us from detecting our own jiggle as user activity
         if let lastJiggle = lastJiggleCompletionTime,
            Date().timeIntervalSince(lastJiggle) < 1.0
         {
@@ -189,12 +202,9 @@ final class JigglerController: ObservableObject {
             let distance = hypot(currentPos.x - lastPos.x, currentPos.y - lastPos.y)
 
             if distance > self.positionCheckThreshold {
-                // Mouse moved significantly - user is active!
                 self.isUserActivelyMovingMouse = true
                 self.timeMouseHasBeenStill = 0
-                print("[Jiggler] Detected mouse movement: \(Int(distance))px")
             } else {
-                // Mouse is still
                 self.isUserActivelyMovingMouse = false
                 self.timeMouseHasBeenStill += 1
             }
@@ -213,10 +223,7 @@ final class JigglerController: ObservableObject {
             self.lastJiggleTime = Date()
             await self.mouseController.jiggle()
             self.lastJiggleCompletionTime = Date()
-            // After jiggling, update lastMousePosition to the new position
-            // so we don't detect our own movement as user activity
             self.lastMousePosition = self.getCurrentMousePosition()
-            print("[Jiggler] Mouse moved at \(Date())")
         }
     }
 

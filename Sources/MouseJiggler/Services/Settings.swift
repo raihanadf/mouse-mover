@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 /// App settings managed via UserDefaults
@@ -7,7 +6,6 @@ final class Settings: ObservableObject {
     static let shared = Settings()
 
     private let defaults = UserDefaults.standard
-    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Published Settings
 
@@ -17,13 +15,6 @@ final class Settings: ObservableObject {
 
     @Published var moveIntervalSeconds: Double {
         didSet { self.defaults.set(self.moveIntervalSeconds, forKey: Keys.moveIntervalSeconds) }
-    }
-
-    @Published var isMenuBarMode: Bool {
-        didSet {
-            self.defaults.set(self.isMenuBarMode, forKey: Keys.isMenuBarMode)
-            NotificationCenter.default.post(name: .menuBarModeChanged, object: nil)
-        }
     }
 
     @Published var launchAtLogin: Bool {
@@ -43,7 +34,6 @@ final class Settings: ObservableObject {
     private enum Keys {
         static let idleThresholdMinutes = "idleThresholdMinutes"
         static let moveIntervalSeconds = "moveIntervalSeconds"
-        static let isMenuBarMode = "isMenuBarMode"
         static let launchAtLogin = "launchAtLogin"
         static let showNotifications = "showNotifications"
         static let enableKeyboardShortcut = "enableKeyboardShortcut"
@@ -58,21 +48,17 @@ final class Settings: ObservableObject {
     // MARK: - Initialization
 
     private init() {
-        // Register defaults
         let defaults: [String: Any] = [
-            Keys.idleThresholdMinutes: 0.5, // 30 seconds default
+            Keys.idleThresholdMinutes: 0.5, // 30 seconds
             Keys.moveIntervalSeconds: 10.0,
-            Keys.isMenuBarMode: false,
             Keys.launchAtLogin: false,
             Keys.showNotifications: true,
             Keys.enableKeyboardShortcut: true,
         ]
         self.defaults.register(defaults: defaults)
 
-        // Load values
         self.idleThresholdMinutes = self.defaults.double(forKey: Keys.idleThresholdMinutes)
         self.moveIntervalSeconds = self.defaults.double(forKey: Keys.moveIntervalSeconds)
-        self.isMenuBarMode = self.defaults.bool(forKey: Keys.isMenuBarMode)
         self.launchAtLogin = self.defaults.bool(forKey: Keys.launchAtLogin)
         self.showNotifications = self.defaults.bool(forKey: Keys.showNotifications)
         self.enableKeyboardShortcut = self.defaults.bool(forKey: Keys.enableKeyboardShortcut)
@@ -83,15 +69,8 @@ final class Settings: ObservableObject {
     func resetToDefaults() {
         self.idleThresholdMinutes = 0.5
         self.moveIntervalSeconds = 10.0
-        self.isMenuBarMode = false
         self.launchAtLogin = false
         self.showNotifications = true
         self.enableKeyboardShortcut = true
     }
-}
-
-// MARK: - Notifications
-
-extension Notification.Name {
-    static let menuBarModeChanged = Notification.Name("menuBarModeChanged")
 }
