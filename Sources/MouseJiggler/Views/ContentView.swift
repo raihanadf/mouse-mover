@@ -2,78 +2,131 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var jiggler = JigglerController()
-    
+    @State private var showDebugView = false
+    @State private var showPermissionAlert = false
+    @State private var showSettingsView = false
+
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 32) {
             // Header
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 Image(systemName: "cursorarrow.motion.lines")
-                    .font(.system(size: 60))
-                    .foregroundColor(jiggler.isActive ? .green : .gray)
-                    .opacity(jiggler.isActive ? 1.0 : 0.5)
-                
+                    .font(.system(size: 64))
+                    .foregroundColor(self.jiggler.isActive ? .green : .gray)
+                    .opacity(self.jiggler.isActive ? 1.0 : 0.5)
+
                 Text("Mouse Jiggler")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                
+
                 Text("Moves cursor to random positions")
+                    .font(.title3)
                     .foregroundColor(.secondary)
             }
-            
+            .padding(.top, 16)
+
             Divider()
-            
+                .padding(.horizontal, 32)
+
             // Status Section
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 StatusRow(
                     icon: "power.circle.fill",
                     title: "Status",
-                    value: jiggler.isActive ? "Active" : "Inactive",
-                    color: jiggler.isActive ? .green : .red
+                    value: self.jiggler.isActive ? "Active" : "Inactive",
+                    color: self.jiggler.isActive ? .green : .red
                 )
-                
+
                 StatusRow(
                     icon: "clock.arrow.circlepath",
                     title: "Idle Time",
-                    value: jiggler.formattedIdleTime,
+                    value: self.jiggler.formattedIdleTime,
                     color: .blue
                 )
-                
+
                 StatusRow(
                     icon: "cursorarrow",
                     title: "Last Move",
-                    value: jiggler.formattedLastJiggleTime,
+                    value: self.jiggler.formattedLastJiggleTime,
                     color: .orange
                 )
             }
-            .padding(.horizontal)
-            
+            .padding(.horizontal, 40)
+
             Spacer()
-            
+
             // Main Toggle Button
             Button(action: {
-                jiggler.toggle()
-            }) {
-                HStack {
-                    Image(systemName: jiggler.isActive ? "stop.fill" : "play.fill")
-                    Text(jiggler.isActive ? "Stop" : "Start")
+                if !AccessibilityChecker.checkPermissions(), !self.jiggler.isActive {
+                    self.showPermissionAlert = true
+                    AccessibilityChecker.requestPermissions()
+                } else {
+                    self.jiggler.toggle()
                 }
-                .font(.headline)
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: self.jiggler.isActive ? "stop.fill" : "play.fill")
+                        .font(.title3)
+                    Text(self.jiggler.isActive ? "Stop" : "Start")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding()
-                .background(jiggler.isActive ? Color.red : Color.green)
+                .padding(.vertical, 16)
+                .background(self.jiggler.isActive ? Color.red : Color.green)
                 .cornerRadius(12)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal)
-            
-            // Info Text
-            Text("Starts moving cursor after 30 seconds of idle time")
+            .padding(.horizontal, 40)
+
+            // Settings & Info
+            VStack(spacing: 12) {
+                Button("Settings...") {
+                    self.showSettingsView = true
+                }
+                .font(.body)
+                .buttonStyle(.link)
+
+                Text("Idle: \(Int(Settings.shared.idleThresholdMinutes * 60))s | Interval: \(Int(Settings.shared.moveIntervalSeconds))s")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Button("Debug") {
+                    self.showDebugView = true
+                }
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .buttonStyle(.link)
+                .foregroundColor(.gray)
+            }
+            .padding(.bottom, 16)
         }
-        .padding()
-        .frame(width: 400, height: 400)
+        .frame(width: 480, height: 520)
+        .sheet(isPresented: self.$showDebugView) {
+            DebugView()
+        }
+        .sheet(isPresented: self.$showSettingsView) {
+            SettingsView()
+        }
+        .alert("Accessibility Permissions Required", isPresented: self.$showPermissionAlert) {
+            Button("Open Settings") {
+                AccessibilityChecker.openAccessibilitySettings()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Mouse Jiggler needs accessibility permissions to control the cursor. Please enable it in System Settings.")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleJiggler)) { _ in
+            if AccessibilityChecker.checkPermissions() {
+                self.jiggler.toggle()
+            } else {
+                self.showPermissionAlert = true
+                AccessibilityChecker.requestPermissions()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showSettings)) { _ in
+            self.showSettingsView = true
+        }
     }
 }
 
@@ -82,22 +135,23 @@ struct StatusRow: View {
     let title: String
     let value: String
     let color: Color
-    
+
     var body: some View {
         HStack {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 24)
-            
-            Text(title)
+            Image(systemName: self.icon)
+                .foregroundColor(self.color)
+                .font(.title3)
+                .frame(width: 32)
+
+            Text(self.title)
+                .font(.body)
                 .foregroundColor(.primary)
-            
+
             Spacer()
-            
-            Text(value)
+
+            Text(self.value)
                 .font(.system(.body, design: .monospaced))
                 .foregroundColor(.secondary)
         }
     }
 }
-

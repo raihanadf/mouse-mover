@@ -4,6 +4,7 @@ This project uses **bd (beads)** for issue tracking. Run `bd prime` for workflow
 
 ## Quick Reference
 
+### Issue Tracking (beads)
 ```bash
 bd ready              # Find unblocked work
 bd show <id>          # View issue details
@@ -12,6 +13,15 @@ bd close <id>         # Complete work
 bd sync               # Sync with git
 bd create "Title" --type task --priority 2  # Create issue
 ```
+
+### Code Formatting (SwiftFormat)
+```bash
+make format           # Format all Swift files
+make lint             # Check formatting without modifying
+swiftformat --lint Sources/MouseJiggler/SomeFile.swift  # Check single file
+```
+
+**Pre-commit hook is installed** - Swift files are auto-formatted on every commit.
 
 ## Mouse Jiggler Project Phases
 

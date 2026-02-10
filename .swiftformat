@@ -1,0 +1,17 @@
+# SwiftFormat Configuration
+# https://github.com/nicklockwood/SwiftFormat/blob/master/Rules.md
+
+# Format options
+--indent 4
+--trimwhitespace always
+--allman false
+--wraparguments beforefirst
+--wrapparameters beforefirst
+--self insert
+--importgrouping testable-last
+
+# File options
+--swiftversion 5.9
+
+# Exclude
+--exclude .build,MouseJiggler.app

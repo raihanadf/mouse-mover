@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "MouseJiggler",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v13),
     ],
     dependencies: [],
     targets: [
@@ -12,8 +12,12 @@ let package = Package(
             name: "MouseJiggler",
             dependencies: [],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
+                .enableExperimentalFeature("StrictConcurrency"),
             ]
-        )
+        ),
+        .testTarget(
+            name: "MouseJigglerTests",
+            dependencies: ["MouseJiggler"]
+        ),
     ]
 )
